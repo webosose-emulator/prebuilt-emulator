@@ -1,0 +1,449 @@
+#!/bin/bash
+
+SCRIPT_VERSION=1.0.0
+SCRIPT_PATH=$( cd "$(dirname "$0")" ; pwd -P )
+#echo $SCRIPT_PATH
+
+#Not use ose build environment 
+unset TOPDIR
+unset BUILDDIR
+
+function log {
+    local msg=$1
+#    echo "Log message: $msg" >&2
+}
+
+function printWarning {
+	YELLOW='\033[1;33m'
+	NC='\033[0m'
+	printf "${YELLOW}$1${NC}\n"
+}
+
+function printError {
+	RED='\033[0;31m'
+	NC='\033[0m'
+	printf "${RED}$1${NC}\n"
+}
+
+function echoLightBlue {
+	BLUE='\033[1;34m'
+	NC='\033[0m'
+	printf "${BLUE}$1${NC}"
+}
+
+function printHelp {
+	echo "========================================="
+	echo "Usage: emulator [CONFIGURATION_JSON_FILE]"
+	echo "Reference the README file for Configuration JSON file options."
+	echo
+	echo "Mandatory arguments to long options are mandatory for short options too."
+	echo "-h, -help     display this help and exit"
+    echo "-v, -version  output version information and exit"
+
+}
+
+
+#get Configuration value from Array
+#getConfValue [key]
+#    return [value]
+function getConfValue {
+    for key in ${!QEMUBOOT_CONF_DATA_ARR[@]}; do
+        if [ ${1} == ${key} ]; then
+            echo ${QEMUBOOT_CONF_DATA_ARR[${key}]} ;
+            exit 1;
+        fi; 
+#        echo "*"${key}":"${QEMUBOOT_CONF_DATA_ARR[${key}]}"*"
+    done
+    
+    printWarning "Warning: Cannot find \"${1}\" in ${QEMUBOOT_CONF_PATH}" >&2;
+    exit 1;
+}
+
+#add configuration to webos-config.json
+#addJsonValue [key] [value]
+function addJsonValue {
+    local args="'$*'"
+    local SECOND_ARG=$(sed -e 's/'"$1 "'//g'i <<< $args)
+    SECOND_ARG=$(sed -e "s/'//g"i <<< $SECOND_ARG)
+    #add key, value to last
+    #sed -i '$s/}/,"'$1'":"'"$SECOND_ARG"'"\n}/' $CONFIG_JSON_FILE
+    #add key, value to first
+    sed -i 's/[{]/{\n    "'$1'":"'"$SECOND_ARG"'",/g' $CONFIG_JSON_FILE
+}
+
+#get Json Value
+#getJsonValue [key]
+#    return [value]
+function getJsonValue {
+    local UNAMESTR=`uname`
+    if [[ "$UNAMESTR" == 'Linux' ]]; then
+        SED_EXTENDED='-r'
+    elif [[ "$UNAMESTR" == 'Darwin' ]]; then
+        SED_EXTENDED='-E'
+    fi; 
+
+    local VALUE=`grep -m 1 "\"${1}\"" ${CONFIG_JSON_FILE} | sed ${SED_EXTENDED} 's/^ *//;s/.*: *"//;s/",?//'`
+	
+	log $1" : "$VALUE
+
+    if [ ! "$VALUE" ]; then
+        printWarning "Warning: Cannot find \"${1}\" in ${CONFIG_JSON_FILE}" >&2;
+		echo ""
+    else
+        echo $VALUE ;
+    fi;
+}
+
+function isNumber {
+    local IsNumber='^[0-9]+$'
+    if ! [[ $1 =~ $IsNumber ]]; then
+        echo false
+    else
+        echo true
+    fi
+}
+
+function getMemorySize {
+    local TMP_RAMSIZE=$1
+    TMP_RAMSIZE=$(sed -e 's/B//g'i <<< $TMP_RAMSIZE)
+    TMP_RAMSIZE=$(sed -e 's/b//g'i <<< $TMP_RAMSIZE)
+    if [ "${TMP_RAMSIZE:$((${#TMP_RAMSIZE}-1)):1}" == "G" -o "${TMP_RAMSIZE:$((${#TMP_RAMSIZE}-1)):1}" == "g" ]; then
+        TMP_RAMSIZE=$(sed -e 's/G//g'i <<< $TMP_RAMSIZE)
+        TMP_RAMSIZE=$(sed -e 's/g//g'i <<< $TMP_RAMSIZE)
+        TMP_RAMSIZE=$((($TMP_RAMSIZE + 0) * 1024))
+    elif [ "${TMP_RAMSIZE:$((${#TMP_RAMSIZE}-1)):1}" == "M" -o "${TMP_RAMSIZE:$((${#TMP_RAMSIZE}-1)):1}" == "m" ]; then
+        TMP_RAMSIZE=$(sed -e 's/M//g'i <<< $TMP_RAMSIZE)
+        TMP_RAMSIZE=$(sed -e 's/m//g'i <<< $TMP_RAMSIZE)
+        TMP_RAMSIZE=$(($TMP_RAMSIZE + 0))
+    else
+        if [ `isNumber $TMP_RAMSIZE` == "false" ]; then
+            printError "Check the hw.ramSize value." >&2;
+            TMP_RAMSIZE=0
+        fi
+    fi
+    echo $TMP_RAMSIZE
+}
+
+function isPackageInstalled {
+    dpkg -s $1 &> /dev/null
+    if [ $? -eq 0 ]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+function toLowercase {
+    echo "$(tr [A-Z] [a-z] <<< "$1")"
+}
+
+function toUppercase {
+    echo "$(tr [a-z] [A-Z] <<< "$1")"
+}
+
+
+SHOW_VERSION=0
+SHOW_HELP=0
+for arg; do
+    if [ $arg == "-version" -o $arg == "-v" ]; then
+		SHOW_VERSION=1
+	elif [ $arg == "-help" -o $arg == "-h" ]; then
+		SHOW_HELP=1
+	elif [[ $arg == *".json" ]] || [[ $arg == *".JSON" ]]; then
+		CONFIG_JSON_FILE=$arg
+	fi
+done
+if [ $SHOW_VERSION == 1 ]; then
+	echo "Emulator script version is "$SCRIPT_VERSION
+	exit
+elif [ $SHOW_HELP == 1 ]; then
+	printHelp
+	exit
+fi
+
+
+LINUX_VERSION=`lsb_release -r -s`
+HOST_OS=`uname`
+OS=$(awk '/DISTRIB_ID=/' /etc/*-release | sed 's/DISTRIB_ID=//' | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m | sed 's/x86_//;s/i[3-6]86/32/')
+echo $HOST_OS $OS $LINUX_VERSION $ARCH
+
+# check libsdl2-2.0-0 package
+if [ `isPackageInstalled libsdl2-2.0-0` == "false" ]; then
+    printError "libsdl2-2.0-0 is not installed."
+    echo "----------------------------------"
+    echo "sudo apt-get install libsdl2-2.0-0"
+    exit
+fi
+# check libpng12-0 package
+if [ `isPackageInstalled libpng12-0` == "false" ]; then
+    printError "libpng12-0 is not installed."
+    echo "----------------------------------"
+    if [ "${LINUX_VERSION:0:2}" == "18" ]; then
+        echo "wget -q -O http://mirrors.kernel.org/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1_amd64.deb"
+        echo "sudo dpkg -i libpng12-0_1.2.54-1ubuntu1_amd64.deb"
+    else
+        echo "sudo apt-get install libpng12-0"
+    fi
+    exit
+fi
+
+
+if [ "$ARCH" == "32" ]; then
+    ARCH="x86"
+else
+    ARCH="x86_64"
+fi
+
+#check build environment setting
+if [ -z "$TOPDIR" ] || [ -z "$BUILDDIR" ] ; then
+    QEMU_PATH=$SCRIPT_PATH/bin/$ARCH
+else
+    QEMU_PATH=$TOPDIR/BUILD/sysroots/x86_64-linux/usr/bin/$ARCH
+fi
+QEMU_PATH=$SCRIPT_PATH/bin/$ARCH
+
+#Set the configuration json
+if [ -z "$CONFIG_JSON_FILE" ]; then
+    if [ -n "$TOPDIR" ] && [ -n "$BUILDDIR" ] ; then
+        #get the configuration information from webos-image-qemux86.qemuboot.conf 
+        QEMUBOOT_CONF_PATH=`find $BUILDDIR -name '*qemux86.qemuboot.conf'`
+		if [ -z "$QEMUBOOT_CONF_PATH" ]; then
+			printError "Error: Cannot find 'qemux86.qemuboot.conf' file. Build first."
+			exit
+		fi
+		echo "QEMU Boot Configuration file : "`echoLightBlue $QEMUBOOT_CONF_PATH`
+        while read -r line
+        do
+            if [[ "$line" = *"="* ]]; then
+                IFS='=' read -r -a array <<< "$line"
+                #get key
+                #remove end white space
+                key=$(sed -e 's/^ *//g' -e 's/ *$//g' <<< ${array[0]})
+                #change "-" to "_"
+                key=$(sed -e 's/-/_/g'i <<< $key)
+        #        key=$(sed -e 's/qb_//g'i <<< $key)
+                #get value
+                #remove start white space
+                value=$(sed -e 's/^ *//g' -e 's/ *$//g' <<< ${array[1]})
+                for (( i=2; i<${#array[@]}; i++ ));
+                do
+                    value=$value"="$(sed -e 's/^ *//g' -e 's/ *$//g' <<< ${array[$i]})
+                done
+                #insert key value pair
+                declare -A QEMUBOOT_CONF_DATA_ARR
+                QEMUBOOT_CONF_DATA_ARR[$key]=$value
+            fi
+        done < "$QEMUBOOT_CONF_PATH"
+
+        #for Debug configuration key & value
+        #for key in ${!QEMUBOOT_CONF_DATA_ARR[@]}; do
+        #    echo "***"${key}":"${QEMUBOOT_CONF_DATA_ARR[${key}]}"***"
+        #done
+		
+		DEPLOY_PATH=`getConfValue deploy_dir_image`
+        CONFIG_JSON_FILE=$SCRIPT_PATH/webos-config.json
+				
+        #generate the configuration json file
+		printf '{\n' > $CONFIG_JSON_FILE
+		printf '    "portforwarding.SSH":"6622",\n' >> $CONFIG_JSON_FILE
+		printf '    "portforwarding.inspector":"9998"\n' >> $CONFIG_JSON_FILE
+		printf '}\n' >> $CONFIG_JSON_FILE
+        
+		DEPLOY_PATH=$(sed -e 's:/:\\/:g' <<< $DEPLOY_PATH)
+        IMAGE_NAME=`getConfValue image_name`
+        #add the vmdk path in configuration json file
+        #TODO: check exception case???
+
+		TMP_A=`getConfValue qb_serial_opt`
+		TMP_B="-serial mon:stdio -serial null"
+		addJsonValue debug $([ "$TMP_A" == "$TMP_B" ] && echo true || echo false)
+
+		soundhw=`getConfValue qb_audio_opt`
+		if [ -n "$soundhw" ]; then
+			soundhw=$(sed -e 's/-soundhw//g'i <<< $soundhw)
+#			addJsonValue soundhw $soundhw
+		fi
+#		addJsonValue hw.audio `getConfValue qb_audio_drv`
+
+		TMP_A=`getConfValue qb_opt_append`
+		TMP_B="-show-cursor"
+#		addJsonValue cursor $([[ $TMP_A = *"$TMP_B"* ]] && echo true || echo false)
+
+		TMP_B="-usb -usbdevice tablet"
+#		addJsonValue touch $([[ $TMP_A = *"$TMP_B"* ]] && echo true || echo false)
+
+		TMP_B="virgl"
+		TMP_C=",gl=on"
+		addJsonValue hw.gl.accel $([[ $TMP_A = *"$TMP_B"*"$TMP_C"* ]] || [[ $TMP_A = *"$TMP_C"*"$TMP_B"* ]] && echo true || echo false)
+
+		TMP_B="-enable-kvm"
+		addJsonValue hw.accel $([[ $TMP_A = *"$TMP_B"* ]] && echo true || echo false)
+
+		mem=`getConfValue qb_mem`
+		if [ -n "$mem" ]; then
+			mem=$(sed -e 's/-m//g'i <<< $mem)
+			addJsonValue hw.ramSize $mem
+		fi
+
+    	addJsonValue hw.core 1 
+		addJsonValue vmdk_file_path "$DEPLOY_PATH\/$IMAGE_NAME.vmdk"
+		addJsonValue name `getConfValue image_link_name`
+        addJsonValue description `getConfValue machine`
+
+		TMP_B="-device virtio-rng-pci"
+#		addJsonValue hw.virtio.rng $([[ $TMP_A = *"$TMP_B"* ]] && echo true || echo false)
+		
+#	else
+#		CONFIG_JSON_FILE=`find $QEMU_PATH -name 'webos-config.json'`
+    fi
+fi
+
+if [ -n "$CONFIG_JSON_FILE" ]; then
+	if [ ! -f "$CONFIG_JSON_FILE" ]; then
+		printError "Error: "$CONFIG_JSON_FILE" is correct???"
+		exit
+	fi
+	CONFIG_JSON_FILE=`readlink -e $CONFIG_JSON_FILE`
+	echo "Configuration JSON file : "`echoLightBlue $CONFIG_JSON_FILE`
+else
+	printError "Error: Choice the webos-config.json"
+	exit
+fi
+
+CONFIG_JSON_DIR=`dirname $CONFIG_JSON_FILE`
+
+#read information from webos-config.json
+QEMU_VMDK_FILE=`getJsonValue vmdk_file_path`
+if [ -z "$QEMU_VMDK_FILE" ]; then
+    printError "Error: Check the "$CONFIG_JSON_FILE
+#    QEMU_VMDK_FILE=`find . -type f -name '*.vmdk' | sed 's/.vmdk\([0-9]\+\).*/\1/g' | sort -n | tail -1`
+	exit
+else 
+	if [ "${QEMU_VMDK_FILE:0:2}" == "./" ]; then
+		QEMU_VMDK_FILE=`readlink -e $CONFIG_JSON_DIR/$QEMU_VMDK_FILE`
+	elif [ "${QEMU_VMDK_FILE:0:2}" == "~/" ]; then
+		QEMU_VMDK_FILE=${QEMU_VMDK_FILE/#~/$HOME}
+	fi
+	if [ ! -f "$QEMU_VMDK_FILE" ]; then
+		printError "Error: Check the vmdk_file_path value in the "$CONFIG_JSON_FILE
+		printError "Error: "$QEMU_VMDK_FILE
+		exit
+	fi
+fi
+echo "Emualtor start with : "`echoLightBlue $QEMU_VMDK_FILE`
+
+QEMU_NAME=`getJsonValue name`
+if [ -n "$QEMU_NAME" ]; then
+    QEMU_NAME="-name "$QEMU_NAME
+fi
+
+QEMU_SSH_PORT=`getJsonValue portforwarding.SSH`
+if [ `isNumber $QEMU_SSH_PORT` == "false" ]; then
+    printError "Check the portfowarding.SSH." >&2;
+    exit
+fi
+if [ -z "$QEMU_SSH_PORT" ]; then
+    QEMU_SSH_PORT="6622-:22"
+else
+    QEMU_SSH_PORT="$QEMU_SSH_PORT-:22"
+fi
+
+QEMU_INSPECTOR_PORT=`getJsonValue portforwarding.inspector`
+if [ `isNumber $QEMU_INSPECTOR_PORT` == "false" ]; then
+    printError "Check the portfowarding.inspector" >&2;
+    exit
+fi
+if [ -n "$QEMU_INSPECTOR_PORT" ]; then
+    QEMU_INSPECTOR_PORT=",hostfwd=tcp::$QEMU_INSPECTOR_PORT-:9998"
+fi
+
+QEMU_DEBUG=`getJsonValue debug`
+QEMU_DEBUG=`toLowercase $QEMU_DEBUG`
+if [ "$QEMU_DEBUG" == "true" ]; then
+    QEMU_DEBUG="-serial mon:stdio -serial null"
+else
+    QEMU_DEBUG=""
+fi
+
+QEMU_CORE=`getJsonValue hw.core`
+if [ -z "$QEMU_CORE" ]; then
+    QEMU_CORE_CNT=`cat /proc/cpuinfo | grep processor | wc -l`
+    QEMU_CORE=$((QEMU_CORE_CNT/2))
+fi
+if [ `isNumber $QEMU_CORE` == "false" ]; then
+    printError "Check the hw.core." >&2;
+    exit
+fi
+QEMU_CORE="-smp "$QEMU_CORE
+
+QEMU_RAMSIZE=`getJsonValue hw.ramSize`
+QEMU_RAMSIZE=`getMemorySize $QEMU_RAMSIZE`
+if [ -z "$QEMU_RAMSIZE" ]; then
+    TOTAL_MEM=`grep MemTotal /proc/meminfo | awk '{print $2}'`
+    QEMU_RAMSIZE=$((TOTAL_MEM/2/1000/1000*1024))
+fi
+if [ "$QEMU_RAMSIZE" -lt "1024" ]; then
+	printError "Error: Guest memory must set more than 1024MB."
+	exit
+fi
+QEMU_RAMSIZE="-m "$QEMU_RAMSIZE
+
+QEMU_ACCEL=`getJsonValue hw.accel`
+QEMU_ACCEL=`toLowercase $QEMU_ACCEL`
+if [ "$QEMU_ACCEL" == "true" ]; then
+    QEMU_ACCEL="-enable-kvm"
+else
+    QEMU_ACCEL=""
+fi
+
+QEMU_DISPLAY=sdl
+QEMU_GL_ACCEL=`getJsonValue hw.gl.accel`
+QEMU_GL_ACCEL=`toLowercase $QEMU_GL_ACCEL`
+if [ "$QEMU_GL_ACCEL" == "true" ]; then
+    if [ "$HOST_OS" == "Linux" -a "$OS" == "ubuntu" ]; then
+        QEMU_GL_ACCEL_DEV="-device virtio-vga,virgl"
+    fi
+    QEMU_GL_ACCEL="-display $QEMU_DISPLAY,gl=on"
+else
+    QEMU_GL_ACCEL_DEV="-device virtio-vga"
+    QEMU_GL_ACCEL="-display $QEMU_DISPLAY,gl=off"
+fi
+
+#if [ "`getJsonValue cursor`" == "true" ]; then
+    QEMU_CURSOR="-show-cursor"
+#fi
+
+#if [ "`getJsonValue touch`" == "true" ]; then
+    QEMU_USB="-usb -usbdevice tablet"
+#fi
+
+#if [ "`getJsonValue hw.virtio.rng`" == "true" ]; then
+    QEMU_DEVICE_RNG="-device virtio-rng-pci"
+#fi
+
+#QEMU_SOUND_HW=`getJsonValue soundhw`
+QEMU_SOUND_HW=hda
+if [ -n "$QEMU_SOUND_HW" ]; then
+    QEMU_SOUND_HW="-soundhw "$QEMU_SOUND_HW
+fi
+
+QEMU_OPT_APPEND="$QEMU_ACCEL $QEMU_GL_ACCEL_DEV $QEMU_GL_ACCEL $QEMU_CURSOR $QEMU_USB $QEMU_DEVICE_RNG"
+#echo $QEMU_OPT_APPEND
+
+sleep 1
+
+#path for additional library path
+export LD_LIBRARY_PATH=$SCRIPT_PATH/lib/$ARCH
+#QEMU_AUDIO_DRV=`getJsonValue hw.audio`
+QEMU_AUDIO_DRV=alsa
+
+FINAL_CMD="$QEMU_PATH/qemu-system-i386 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
+
+echo $FINAL_CMD
+
+if [ -z $DISPLAY ]; then
+	exit
+fi
+$FINAL_CMD
+
