@@ -188,6 +188,50 @@ if [ `isPackageInstalled libpng12-0` == "false" ]; then
     exit
 fi
 
+# check mesa-utils package to check whether your pc suppor openGL 3.0 version at least
+if [ `isPackageInstalled mesa-utils` == "false" ]; then
+    printError "mesa-utils is not installed. Please install mesa-utils to check whether your pc suppor openGL 3.0 version."
+    echo "----------------------------------"
+    echo "sudo apt-get install mesa-utils"
+else
+    # check libegl1-mesa-dev package
+    mesa_version=`glxinfo | grep "OpenGL version"`
+    var1=${mesa_version:23:3}
+    mesa_version_number=3.0
+    if (( $(echo "$var1 < $mesa_version_number" | bc -l) )); then
+        printError "The GLES & mesa library version is $mesa_version"
+    echo "------------------------------------------------------------------------------------------------------------------"
+        printError "Minimum version to run the emulator is 3.0"
+	echo
+
+	echo '''To install newest mesa package, follow bellow steps.
+
+1. Check the installed mesa package:
+   sudo apt list --installed | grep mesa
+
+2. Check the GLES & mesa library version:
+   glxinfo | grep "OpenGL version"
+
+3. Delete old mesa package:
+   14.04
+        https://www.howtoinstall.co/en/ubuntu/trusty/libegl1-mesa-dev?action=remove
+   16.04
+        https://www.howtoinstall.co/en/ubuntu/xenial/libegl1-mesa?action=remove
+
+4. Update the system:
+   sudo apt-get update
+   sudo apt-get upgrade(or sudo apt-get dist-upgrade)
+   sudo apt-get -f install
+
+5. Install dependency packages:
+   sudo apt-get install libegl1-mesa-drivers
+   sudo apt-get install libsdl2-2.0-0
+
+6. Install newest mesa package:
+   sudo apt-get install -f libegl1-mesa-lts-xenial'''
+        exit
+    fi
+fi
 
 if [ "$ARCH" == "32" ]; then
     ARCH="x86"
@@ -222,7 +266,7 @@ if [ -z "$CONFIG_JSON_FILE" ]; then
                 key=$(sed -e 's/^ *//g' -e 's/ *$//g' <<< ${array[0]})
                 #change "-" to "_"
                 key=$(sed -e 's/-/_/g'i <<< $key)
-        #        key=$(sed -e 's/qb_//g'i <<< $key)
+                #key=$(sed -e 's/qb_//g'i <<< $key)
                 #get value
                 #remove start white space
                 value=$(sed -e 's/^ *//g' -e 's/ *$//g' <<< ${array[1]})
@@ -331,7 +375,7 @@ else
 		exit
 	fi
 fi
-echo "Emualtor start with : "`echoLightBlue $QEMU_VMDK_FILE`
+#echo "Emualtor start with : "`echoLightBlue $QEMU_VMDK_FILE`
 
 QEMU_NAME=`getJsonValue name`
 if [ -n "$QEMU_NAME" ]; then
@@ -442,8 +486,60 @@ FINAL_CMD="$QEMU_PATH/qemu-system-i386 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU
 
 echo $FINAL_CMD
 
+# check kvm package
+if [ `isPackageInstalled cpu-checker` == "false" ]; then
+    printError "cpu-checker is not installed. If you want to check kvm in your pc, please install cpu-checker."
+    echo "----------------------------------"
+    echo "sudo apt-get install cpu-checker"
+    #exit  # do not exit because it's optional
+else
+    #KVM check
+    KVM_status=`sudo kvm-ok`
+    if [ "${KVM_status}" == "INFO: /dev/kvm does not exist
+HINT:   sudo modprobe kvm_intel
+INFO: Your CPU supports KVM extensions
+INFO: KVM (vmx) is disabled by your BIOS
+HINT: Enter your BIOS setup and enable Virtualization Technology (VT),
+      and then hard poweroff/poweron your system
+KVM acceleration can NOT be used" ]; then
+         echo ""
+         printError "Not able to initialize KVM. Check your processor support and enable KVM under BIOS settings."
+         echo '''
+Check if processor supports virtualization or not using below commands.
+NOTE:(If the processor doesnot have support, virtualization cannot be enabled).
+
+For Intel VT technology:
+   Run the command: grep --color vmx /proc/cpuinfo
+   (If the output has the vmx flags, then Intel CPU host is capable of running hardware virtualization)
+
+For AMD – V technology:
+   Run the command: grep --color svm /proc/cpuinfo
+   (If the output has the svm flags, then AMD CPU host is capable of running hardware virtualization).
+
+In host system, install kvm module by using bellow command and run it again:
+$ sudo apt-get install qemu-kvm
+
+Follow the Steps to Enable KVM support for Hardware acceleration:
+   1.Go to the BIOS settings.
+   2.Enable Virtualization Options:
+        -Virtualization
+        -V.T for direct I/O
+   3.Apply
+   4.EXIT'''
+        echo ""
+        exit
+    fi
+fi
+
+echo ""
+echo "Emualtor start with : "`echoLightBlue $QEMU_VMDK_FILE`""
+echo ""
+$FINAL_CMD
+
 if [ -z $DISPLAY ]; then
 	exit
 fi
-$FINAL_CMD
+
+
+
 
