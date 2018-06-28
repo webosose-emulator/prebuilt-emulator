@@ -8,13 +8,15 @@ How to build virglrenderer
   * sudo apt-get upgrade
   * sudo apt-get -f install git libtool libdrm-dev libepoxy-dev libgbm-dev libegl1-mesa-dev libgtk-3-dev autoconf
 * Build
-    ```git clone git://anongit.freedesktop.org/virglrenderer
+    ```
+    git clone git://anongit.freedesktop.org/virglrenderer
     cd virglrenderer
     git checkout virglrenderer-0.6.0
     ./autogen.sh
     ./configure --with-glx
     make && sudo make install
     ```
+
 How to build qemu
 -----------------
 * Pre-requirement
@@ -23,11 +25,13 @@ How to build qemu
   * sudo apt-get upgrade
   * sudo apt-get -f install libsdl2-dev libpixman-1-dev
 * Build
-    ```git clone https://github.com/webosose-emulator/qemu
+    ```
+    git clone https://github.com/webosose-emulator/qemu
     cd qemu
     ./configure --target-list=i386-softmmu --enable-sdl --with-sdlabi=2.0 --audio-drv-list=alsa,pa
     make
     ```
+
 Put results to prebuilt-emulator
 ----------------------------------
 On 64bits Ubuntu,
