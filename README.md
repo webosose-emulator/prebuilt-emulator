@@ -4,6 +4,11 @@ webOS OSE emulator is a tool that enables you to test the features of webOS OSE 
 
 webOS OSE emulator is an x86 (x86_64) virtualization system based on QEMU virtualizer. Currently, the emulator only supports Linux Ubuntu as a host operating system.
 
+## Source codes
+Source codes for qemu binary and virglrendere lib are:
+* qemu : https://github.com/webosose-emulator/qemu
+* virglrenderer : https://github.com/webosose-emulator/virglrenderer
+
 ## How to run the emulator
 
 Use the run script (`emulator`) to launch webOS OSE emulator easily.
