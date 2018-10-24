@@ -42,6 +42,72 @@ function printHelp {
 
 }
 
+function bridge_up {
+	eth_option=$(ls /sys/class/net/)
+	for i in $eth_option;
+	do    
+	if [ "${i:0:1}" == "e" ]    
+	then       
+	 var_eth="$i"
+	break    
+	fi
+	done
+	echo $var_eth
+	echoLightBlue "bridge_utils and uml-utilities must be installed  to start emulator with Bridge support."
+        echo ""  
+	sudo apt-get install bridge-utils
+        echo ""
+	sudo apt-get install uml-utilities
+        echo ""
+        
+	sudo tunctl -t $var_eth
+	     ip tuntap add dev $var_eth mode tap
+	     ip link ls dev $var_eth
+        echoLightBlue "Bridge creation is initiated."
+        echo ""
+        sudo brctl addbr br_QEMU
+	sudo ip addr flush dev $var_eth
+	sudo brctl addif br_QEMU $var_eth
+	sudo tunctl -t tap0 -u `whoami`
+	sudo brctl addif br_QEMU tap0
+	sudo ifconfig $var_eth up
+	sudo ifconfig tap0 up
+	sudo ifconfig br_QEMU up
+        echo ""
+	sudo brctl show
+	sudo dhclient -v br_QEMU
+        echo ""
+        echoLightBlue "Bridge is up successfully"
+        echo ""
+}
+
+
+function bridge_down {
+	eth_option=$(ls /sys/class/net/)
+	for i in $eth_option;
+	do    
+	if [ "${i:0:1}" == "e" ]    
+	then       
+	    var_eth="$i"    
+	fi
+	done
+	echo $var_eth
+        echo ""
+        echo "Bridge to be deleted..."
+	echo ""  
+	sudo tunctl -d $var_eth
+        sudo brctl delif br_QEMU tap0
+	sudo tunctl -d tap0
+	sudo brctl delif br_QEMU $var_eth
+	sudo ifconfig br_QEMU down
+        sudo brctl delbr br_QEMU
+	sudo ifconfig $var_eth up
+	sudo dhclient -v $var_eth
+        echo ""
+        echoLightBlue "Bridge is down successfully"
+        echo ""
+
+}
 
 #get Configuration value from Array
 #getConfValue [key]
@@ -531,13 +597,47 @@ Follow the Steps to Enable KVM support for Hardware acceleration:
     fi
 fi
 
+
+sudo scp -r $LD_LIBRARY_PATH/libexec /usr/local
+sudo chmod -R 4755 /usr/local/libexec
+
+#user interaction for the bridge creation 
+
+read -p 'bridge support needed? Y/N  ' bridge_support_var
+
+if [ "$bridge_support_var" = "N" ] || [ "$bridge_support_var" = "n" ]; then 
+FINAL_CMD="$QEMU_PATH/qemu-system-i386 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
+elif [ "$bridge_support_var" = "Y" ]  || [ "$bridge_support_var" = "y" ]; then 
+     file="/usr/local/etc/qemu/bridge.conf"
+     if [ -f "$file" ]; then
+ 	    'bridge_up'
+
+     else
+	    echo ""
+            sudo scp -r $LD_LIBRARY_PATH/qemu /usr/local/etc/
+	    sudo chmod -R 4755 $LD_LIBRARY_PATH/qemu
+            'bridge_up'
+            echo ""
+     fi
+
+      FINAL_CMD="$QEMU_PATH/qemu-system-i386 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU "
+     else
+       printError "Please enter valid option.i.e [Y/N]"
+       exit
+fi
+
+
+
 echo ""
 echo "Emualtor start with : "`echoLightBlue $QEMU_VMDK_FILE`""
 echo ""
 $FINAL_CMD
-
+ 
 if [ -z $DISPLAY ]; then
-	exit
+   exit
+
+elif [ "$bridge_support_var" = "Y" ] || [ "$bridge_support_var" = "y" ] ; then
+   'bridge_down'
 fi
 
 
