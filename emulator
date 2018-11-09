@@ -548,7 +548,9 @@ export LD_LIBRARY_PATH=$SCRIPT_PATH/lib/$ARCH
 #QEMU_AUDIO_DRV=`getJsonValue hw.audio`
 QEMU_AUDIO_DRV=alsa
 
-FINAL_CMD="$QEMU_PATH/qemu-system-x86_64 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
+QEMU_EXEC=qemu-system-x86_64
+
+FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
 
 echo $FINAL_CMD
 
@@ -606,7 +608,7 @@ sudo chmod -R 4755 /usr/local/libexec
 read -p 'bridge support needed? Y/N  ' bridge_support_var
 
 if [ "$bridge_support_var" = "N" ] || [ "$bridge_support_var" = "n" ]; then 
-FINAL_CMD="$QEMU_PATH/qemu-system-i386 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
+FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
 elif [ "$bridge_support_var" = "Y" ]  || [ "$bridge_support_var" = "y" ]; then 
      file="/usr/local/etc/qemu/bridge.conf"
      if [ -f "$file" ]; then
@@ -620,7 +622,7 @@ elif [ "$bridge_support_var" = "Y" ]  || [ "$bridge_support_var" = "y" ]; then
             echo ""
      fi
 
-      FINAL_CMD="$QEMU_PATH/qemu-system-i386 $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU "
+      FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU "
      else
        printError "Please enter valid option.i.e [Y/N]"
        exit
