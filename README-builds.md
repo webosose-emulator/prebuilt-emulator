@@ -28,7 +28,7 @@ How to build qemu
     ```
     git clone https://github.com/webosose-emulator/qemu
     cd qemu
-    ./configure --target-list=i386-softmmu --enable-sdl --with-sdlabi=2.0 --audio-drv-list=alsa,pa
+    ./configure --target-list=x86_64-softmmu --enable-sdl --with-sdlabi=2.0 --audio-drv-list=alsa,pa
     make
     ```
 
@@ -40,5 +40,5 @@ On 64bits Ubuntu,
 * virglrenderer
     * cp /usr/local/lib/libvirglrenderer.so* prebuilt-emulator/lib/x86_64
 * qemu
-    * cp i386-softmmu/qemu-system-i386 prebuilt-emulator/bin/x86_64
+    * cp x86_64-softmmu/qemu-system-x86_64 prebuilt-emulator/bin/x86_64
     * cp -rf pc-bios prebuilt-emulator/bin
