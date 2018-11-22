@@ -86,3 +86,6 @@ The JSON configuration file (`webos-config.json`) includes emulator options.
 ## Documentation
 
 For full documentation of webOS OSE emulator and other developer tools, visit http://webosose.org/develop/sdk-tools/.
+
+## How to Build
+Read README-builds.md
