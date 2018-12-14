@@ -622,7 +622,7 @@ elif [ "$bridge_support_var" = "Y" ]  || [ "$bridge_support_var" = "y" ]; then
             echo ""
      fi
 
-      FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU "
+      FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU -net user,hostfwd=tcp::6622-:22"
      else
        printError "Please enter valid option.i.e [Y/N]"
        exit
