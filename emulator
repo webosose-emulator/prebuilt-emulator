@@ -604,8 +604,11 @@ sudo scp -r $LD_LIBRARY_PATH/libexec /usr/local
 sudo chmod -R 4755 /usr/local/libexec
 
 #user interaction for the bridge creation 
+echo ""
+echoLightBlue "By default NAT support is enabled .If you wish to change then you can switch to Bridge network support.To work effectively, the Bridge support requires an active Internet connection. We strongly recommend that you do not disconnect the Internet while using Bridge support."
 
-read -p 'bridge support needed? Y/N  ' bridge_support_var
+echo ""
+read -p 'Bridge support needed? [Y/N]' bridge_support_var
 
 if [ "$bridge_support_var" = "N" ] || [ "$bridge_support_var" = "n" ]; then 
 FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
