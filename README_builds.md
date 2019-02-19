@@ -23,7 +23,7 @@ How to build qemu
   * Build virglrenderer package
   * sudo apt-get update
   * sudo apt-get upgrade
-  * sudo apt-get -f install libsdl2-dev libpixman-1-dev
+  * sudo apt-get -f install libsdl2-dev libpixman-1-dev flex
 * Build
     ```
     git clone https://github.com/webosose-emulator/qemu
