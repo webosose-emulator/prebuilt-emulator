@@ -599,6 +599,26 @@ Follow the Steps to Enable KVM support for Hardware acceleration:
     fi
 fi
 
+#usb_WebCam_implementation
+
+if [ `isPackageInstalled libusb-dev` == "false" ]; then
+    printError " libusb-dev is not installed."
+    echo "----------------------------------"
+    echo "sudo apt-get install  libusb-dev"
+    exit
+fi
+
+
+if [ `isPackageInstalled libusb-1.0-0-dev` == "false" ]; then
+    printError " libusb-1.0-0-dev is not installed."
+    echo "----------------------------------"
+    echo "sudo apt-get install  libusb-1.0-0-dev"
+    exit
+fi
+
+QEMU_usbVendor=`getJsonValue webCam_vendor.id`
+QEMU_usbProduct=`getJsonValue webCam_product.id`
+
 
 sudo scp -r $LD_LIBRARY_PATH/libexec /usr/local
 sudo chmod -R 4755 /usr/local/libexec
@@ -611,7 +631,7 @@ echo ""
 read -p 'Bridge support needed? [Y/N]' bridge_support_var
 
 if [ "$bridge_support_var" = "N" ] || [ "$bridge_support_var" = "n" ]; then 
-FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT"
+FINAL_CMD="sudo $QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net user,hostfwd=tcp::$QEMU_SSH_PORT$QEMU_INSPECTOR_PORT -usb -device usb-ehci,id=ehci -device usb-host,bus=ehci.0,vendorid=$QEMU_usbVendor,productid=$QEMU_usbProduct"
 elif [ "$bridge_support_var" = "Y" ]  || [ "$bridge_support_var" = "y" ]; then 
      file="/usr/local/etc/qemu/bridge.conf"
      if [ -f "$file" ]; then
@@ -625,7 +645,7 @@ elif [ "$bridge_support_var" = "Y" ]  || [ "$bridge_support_var" = "y" ]; then
             echo ""
      fi
 
-      FINAL_CMD="$QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU,model=virtio -device e1000,netdev=net0 -netdev user,id=net0,hostfwd=tcp::6622-:22"
+      FINAL_CMD="sudo $QEMU_PATH/$QEMU_EXEC $QEMU_NAME $QEMU_CORE $QEMU_RAMSIZE $QEMU_DEBUG -drive file=$QEMU_VMDK_FILE,if=virtio $QEMU_OPT_APPEND $QEMU_SOUND_HW -net nic -net bridge,br=br_QEMU,model=virtio -device e1000,netdev=net0 -netdev user,id=net0,hostfwd=tcp::6622-:22 -usb -device usb-ehci,id=ehci -device usb-host,bus=ehci.0,vendorid=$QEMU_usbVendor,productid=$QEMU_usbProduct"
      else
        printError "Please enter valid option.i.e [Y/N]"
        exit
