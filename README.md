@@ -43,7 +43,9 @@ The JSON configuration file (`webos-config.json`) includes emulator options.
     "hw.gl.accel":"true",
     "debug":"false",
     "portforwarding.SSH":"6622",
-    "portforwarding.inspector":"9998"
+    "portforwarding.inspector":"9998",
+    "webCam_vendor.id":"0x0000",
+    "webCam_product.id":"0x0000"
 }
 ```
 
@@ -82,7 +84,18 @@ The JSON configuration file (`webos-config.json`) includes emulator options.
     * Port for Web Inspector
     * Address format to connect from the web browser
         * `localhost:<PortNumber>`
-
+* `webCam_vendor.id`
+    * Use the lsusb command to find the vendor id and enter the webCam vendor ID.
+    * The output will be in the below specified format:
+    * Example
+        * 046d:081b ,here 046d is the vendor-ID so the value to be entered in the webCam_vendor.id will be "0x046d"
+      
+* `webCam_product.id`
+    * Use the lsusb command to find the vendor id and enter the webCam vendor ID.
+    * The output will be in the below specified format:
+    * Example
+        * 046d:081b ,here 081b is the product-ID so the value to be entered in the webCam_product.id will be "0x081b"
+      
 ## Documentation
 
 For full documentation of webOS OSE emulator and other developer tools, visit http://webosose.org/develop/sdk-tools/.
