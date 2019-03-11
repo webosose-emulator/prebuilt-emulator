@@ -8,5 +8,7 @@
     "hw.gl.accel":"true",
     "debug":"false",
     "portforwarding.SSH":"6622",
-    "portforwarding.inspector":"9998"
+    "portforwarding.inspector":"9998",
+    "webCam_vendor.id":"0x0000",
+    "webCam_product.id":"0x0000"
 }
